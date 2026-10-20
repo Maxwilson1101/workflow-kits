@@ -1,0 +1,36 @@
+{
+  "name": "pi-extensions",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "extensions/*"
+  ],
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "format": "oxfmt",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run --workspaces test"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^1.3.0",
+    "@earendil-works/pi-coding-agent": "^1.3.0",
+    "@earendil-works/pi-tui": "^1.3.0",
+    "typebox": "^1.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxfmt": "^0.74.0"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/pi-wikipedia/index.ts"
+    ],
+    "skills": [
+      "./skills/lookup-wikipedia"
+    ]
+  }
+}
