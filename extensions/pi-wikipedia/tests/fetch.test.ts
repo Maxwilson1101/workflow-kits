@@ -51,6 +51,22 @@ describe("fetch", () => {
     });
     expect((await fetchPage({ title: "AC/DC" })).path).toBe(join(directory, "AC%2FDC.wikitext"));
   });
+  test("failed downloads publish nothing and queued work can recover", async () => {
+    const directory = await root();
+    let calls = 0;
+    const fetchPage = createFetcher(directory, async () => {
+      if (++calls === 1) throw new Error("Wikipedia network request failed.");
+      expect(await readdir(directory)).toEqual([]);
+      return article;
+    });
+    const failed = fetchPage({ title: "Horn_clause" });
+    const recovered = fetchPage({ title: "Horn_clause" });
+    await expect(failed).rejects.toThrow("network request failed");
+    const result = await recovered;
+    expect(await readFile(result.path, "utf8")).toBe(article.source);
+    expect(await readdir(directory)).toEqual(["Horn_clause.wikitext"]);
+    expect(calls).toBe(2);
+  });
   test("rejects non-wikitext without publishing files", async () => {
     const directory = await root();
     const fetchPage = createFetcher(directory, async () => ({ ...article, content_model: "json" }));

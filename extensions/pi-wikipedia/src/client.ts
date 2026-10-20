@@ -57,6 +57,13 @@ export function createClient(options: ClientOptions = {}): Request {
           Accept: "application/json",
           "User-Agent": userAgent,
         },
+      }).catch((error: unknown) => {
+        signal.throwIfAborted();
+        throw new Error(
+          "Wikipedia network request failed; no HTTP response was received. " +
+            "The cause is unknown; rate limiting is not confirmed.",
+          { cause: error },
+        );
       });
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         await response.body?.cancel();
@@ -85,7 +92,16 @@ export function createClient(options: ClientOptions = {}): Request {
             ? Math.max(0, parsed - Date.now())
             : 5000 * 2 ** retries;
         nextRequest = Math.max(nextRequest, Date.now() + retryMs);
-        if (retries++ >= 2) throw new Error(`Wikipedia HTTP ${response.status}.`);
+        if (retries++ >= 2) {
+          const reason = response.status === 429 ? "rate limited" : "service unavailable";
+          const retry =
+            Number.isFinite(seconds) || Number.isFinite(parsed)
+              ? ` Retry-After: ${Math.ceil(retryMs / 1000)} seconds.`
+              : "";
+          throw new Error(
+            `Wikipedia HTTP ${response.status}: ${reason}; failed after 3 attempts.${retry}`,
+          );
+        }
         await sleep(retryMs, signal);
         continue;
       }
@@ -123,7 +139,14 @@ export function createClient(options: ClientOptions = {}): Request {
       AbortSignal.timeout(options.timeoutMs ?? 90000),
       ...(signal ? [signal] : []),
     ]);
-    combined.throwIfAborted();
+    const abortError = () =>
+      new Error(
+        combined.reason?.name === "TimeoutError"
+          ? "Wikipedia request timed out while queued, waiting, or downloading."
+          : "Wikipedia request was cancelled.",
+        { cause: combined.reason },
+      );
+    if (combined.aborted) throw abortError();
     const task = queue.then(() => execute(path, combined));
     queue = task.then(
       () => {},
@@ -134,6 +157,9 @@ export function createClient(options: ClientOptions = {}): Request {
       combined.addEventListener("abort", abort, { once: true });
       task.then(resolve, reject).finally(() => combined.removeEventListener("abort", abort));
       if (combined.aborted) abort();
+    }).catch((error: unknown) => {
+      if (combined.aborted) throw abortError();
+      throw error;
     });
   };
 }

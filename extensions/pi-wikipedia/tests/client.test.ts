@@ -94,6 +94,106 @@ describe("REST client", () => {
     await expect(request("/page/Horn_clause")).rejects.toThrow("503");
     expect(count).toBe(3);
   });
+  for (const status of [429, 503]) {
+    for (const header of [undefined, "invalid", "0", "Thu, 01 Jan 1970 00:00:00 GMT"]) {
+      test(`reports exhausted HTTP ${status} with Retry-After=${header}`, async () => {
+        let calls = 0;
+        const request = createClient({
+          intervalMs: 0,
+          sleep: async () => {},
+          fetch: async () => {
+            calls++;
+            return new Response(null, {
+              status,
+              headers: header === undefined ? {} : { "Retry-After": header },
+            });
+          },
+        });
+        const error = await request("/page/X").catch((error: Error) => error);
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain(`HTTP ${status}`);
+        expect((error as Error).message).toContain("failed after 3 attempts");
+        expect((error as Error).message).toContain(
+          status === 429 ? "rate limited" : "service unavailable",
+        );
+        if (status !== 429) expect((error as Error).message).not.toContain("rate limit");
+        expect((error as Error).message.includes("Retry-After:")).toBe(
+          header === "0" || header === "Thu, 01 Jan 1970 00:00:00 GMT",
+        );
+        expect(calls).toBe(3);
+      });
+    }
+  }
+  test("network failure retains its cause and does not block queued work", async () => {
+    const cause = new TypeError("fetch failed: private diagnostic");
+    let calls = 0;
+    const request = createClient({
+      intervalMs: 0,
+      fetch: async () => {
+        if (++calls === 1) throw cause;
+        return Response.json(article);
+      },
+    });
+    const failed = request("/page/X");
+    const next = request("/page/Y");
+    const error = await failed.catch((error: Error) => error);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).cause).toBe(cause);
+    expect((error as Error).message).toContain("no HTTP response was received");
+    expect((error as Error).message).toContain("rate limiting is not confirmed");
+    expect((error as Error).message).not.toContain("private diagnostic");
+    expect((error as Error).message).not.toContain("HTTP 429");
+    expect(await next).toEqual(article);
+    expect(calls).toBe(2);
+  });
+  test("cancelling retry waiting prevents another attempt", async () => {
+    const controller = new AbortController();
+    const entered = Promise.withResolvers<void>();
+    let calls = 0;
+    const request = createClient({
+      intervalMs: 0,
+      fetch: async () => {
+        calls++;
+        return new Response(null, { status: 429 });
+      },
+      sleep: async (_ms, signal) => {
+        entered.resolve();
+        await new Promise<void>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+        });
+      },
+    });
+    const result = request("/page/X", controller.signal);
+    const outcome = result.catch((error: Error) => error);
+    await entered.promise;
+    controller.abort();
+    expect(await outcome).toMatchObject({ message: "Wikipedia request was cancelled." });
+    expect(calls).toBe(1);
+  });
+  test("cancelled queued work never accesses the network", async () => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<Response>();
+    let calls = 0;
+    const request = createClient({
+      intervalMs: 0,
+      fetch: async () => {
+        calls++;
+        entered.resolve();
+        return calls === 1 ? release.promise : Response.json(article);
+      },
+    });
+    const first = request("/page/X");
+    await entered.promise;
+    const controller = new AbortController();
+    const queued = request("/page/Y", controller.signal);
+    const outcome = queued.catch((error: Error) => error);
+    controller.abort();
+    expect(await outcome).toMatchObject({ message: "Wikipedia request was cancelled." });
+    release.resolve(Response.json(article));
+    await first;
+    await request("/page/Z");
+    expect(calls).toBe(2);
+  });
   test("times out a stalled request", async () => {
     const request = createClient({
       intervalMs: 0,
@@ -105,7 +205,7 @@ describe("REST client", () => {
           });
         }),
     });
-    await expect(request("/page/Horn_clause")).rejects.toThrow();
+    await expect(request("/page/Horn_clause")).rejects.toThrow("Wikipedia request timed out");
   });
   test("pre-aborted requests do not access network", async () => {
     const request = createClient({
@@ -113,6 +213,6 @@ describe("REST client", () => {
         throw new Error("network accessed");
       },
     });
-    await expect(request("/page/X", AbortSignal.abort())).rejects.toThrow();
+    await expect(request("/page/X", AbortSignal.abort())).rejects.toThrow("cancelled");
   });
 });
