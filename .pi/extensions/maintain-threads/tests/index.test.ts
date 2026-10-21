@@ -12,12 +12,22 @@ function registered() {
   return tools;
 }
 
-test("registers typed read-only tools", () => {
+test("registers six typed tools with appropriate read and write hints", () => {
   const tools = registered();
-  expect(tools.map((tool) => tool.name)).toEqual(["thread_list", "thread_read"]);
+  expect(tools.map((tool) => tool.name)).toEqual([
+    "thread_list",
+    "thread_read",
+    "thread_create",
+    "thread_revise",
+    "thread_append_update",
+    "thread_close",
+  ]);
   for (const tool of tools) {
     expect(tool.outputSchema).toBeDefined();
-    expect(tool.annotations?.readOnlyHint).toBe(true);
+    expect(tool.annotations?.readOnlyHint).toBe(["thread_list", "thread_read"].includes(tool.name));
+    expect(tool.annotations?.idempotentHint).toBe(
+      !["thread_create", "thread_append_update"].includes(tool.name),
+    );
     expect(JSON.stringify(tool.outputSchema)).not.toContain('"url"');
   }
 });
@@ -36,12 +46,28 @@ test("schemas accept the public inputs and reject undeclared fields", () => {
   expect(Check(read.parameters, { number: 1.5 })).toBe(false);
 });
 
-for (const name of ["thread_list", "thread_read"]) {
+for (const entry of [
+  { name: "thread_list", input: { state: "closed" }, value: { threads: [], nextCursor: null } },
+  {
+    name: "thread_read",
+    input: { number: 7 },
+    value: { number: 7, title: "Thread", state: "open", body: "Body", updates: [] },
+  },
+  {
+    name: "thread_create",
+    input: { title: "Title", body: "Body" },
+    value: { number: 7, state: "open" },
+  },
+  {
+    name: "thread_revise",
+    input: { number: 7, body: "Body" },
+    value: { number: 7, state: "open" },
+  },
+  { name: "thread_append_update", input: { number: 7, body: "Body" }, value: { number: 7 } },
+  { name: "thread_close", input: { number: 7 }, value: { number: 7, state: "closed" } },
+]) {
+  const { name, input, value } = entry;
   test(`${name} forwards cwd and cancellation and returns schema-compatible content`, async () => {
-    const value =
-      name === "thread_list"
-        ? { threads: [], nextCursor: null }
-        : { number: 7, title: "Thread", state: "open", body: "Body", updates: [] };
     const signal = new AbortController().signal;
     const calls: unknown[][] = [];
     const execute = async (...args: unknown[]) => {
@@ -50,17 +76,21 @@ for (const name of ["thread_list", "thread_read"]) {
     };
     const create = spyOn(threadModule, "createThreads").mockImplementation((options) => {
       expect(options.cwd).toBe("/project");
-      return { list: execute, read: execute } as unknown as ReturnType<
-        typeof threadModule.createThreads
-      >;
+      return {
+        list: execute,
+        read: execute,
+        create: execute,
+        revise: execute,
+        appendUpdate: execute,
+        close: execute,
+      } as unknown as ReturnType<typeof threadModule.createThreads>;
     });
     try {
       const tool = registered().find((tool) => tool.name === name)!;
-      const input = name === "thread_list" ? { state: "closed" } : { number: 7 };
       const output = await tool.execute("test", input, signal, undefined, {
         cwd: "/project",
       } as Parameters<typeof tool.execute>[4]);
-      expect(calls).toEqual([[name === "thread_list" ? input : 7, signal]]);
+      expect(calls).toEqual([[["thread_read", "thread_close"].includes(name) ? 7 : input, signal]]);
       expect(Check(tool.outputSchema!, output.structuredContent)).toBe(true);
       expect(output.details).toEqual(value);
       expect(output.content).toEqual([{ type: "text", text: JSON.stringify(value) }]);
@@ -69,6 +99,24 @@ for (const name of ["thread_list", "thread_read"]) {
     }
   });
 }
+
+test("write schemas reject empty content and extra confirmation fields", () => {
+  const tools = registered();
+  for (const name of ["thread_create", "thread_revise", "thread_append_update"]) {
+    const tool = tools.find((tool) => tool.name === name)!;
+    const target = name === "thread_create" ? { title: "Title" } : { number: 7 };
+    expect(Check(tool.parameters, { ...target, body: "Body" })).toBe(true);
+    expect(Check(tool.parameters, { ...target, body: "" })).toBe(false);
+    expect(Check(tool.parameters, { ...target, body: "Body", url: "https://example.com" })).toBe(
+      false,
+    );
+  }
+  const close = tools.find((tool) => tool.name === "thread_close")!;
+  expect(Check(close.parameters, { number: 7 })).toBe(true);
+  expect(Check(close.parameters, { number: 7, referencesChecked: true })).toBe(false);
+  expect(close.description).toContain("other threads reference it");
+  expect(close.description).toContain("Revise those bodies if needed");
+});
 
 test("tool execution propagates retrieval failures instead of reporting success", async () => {
   const create = spyOn(threadModule, "createThreads").mockImplementation(

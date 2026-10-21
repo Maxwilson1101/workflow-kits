@@ -144,3 +144,110 @@ describe("reading threads", () => {
     expect(calls).toHaveLength(0);
   });
 });
+
+describe("writing threads", () => {
+  test("creates a thread with only the supplied title and body", async () => {
+    const { threads, calls } = fixture([page(issue)]);
+    expect(await threads.create({ title: "A thread", body: "Original body" })).toEqual({
+      number: 7,
+      state: "open",
+    });
+    expect(calls).toEqual([
+      {
+        method: "POST",
+        path: "/repos/owner/repo/issues",
+        body: { title: "A thread", body: "Original body" },
+      },
+    ]);
+  });
+
+  test("revises only the body without appending an update", async () => {
+    const { threads, calls } = fixture([page(issue), page({ ...issue, body: "Replacement" })]);
+    expect(await threads.revise({ number: 7, body: "Replacement" })).toEqual({
+      number: 7,
+      state: "open",
+    });
+    expect(calls).toEqual([
+      { method: "GET", path: "/repos/owner/repo/issues/7" },
+      { method: "PATCH", path: "/repos/owner/repo/issues/7", body: { body: "Replacement" } },
+    ]);
+  });
+
+  test("appends an update without revising the thread", async () => {
+    const { threads, calls } = fixture([page(issue), page({ id: 101, body: "Progress" })]);
+    expect(await threads.appendUpdate({ number: 7, body: "Progress" })).toEqual({ number: 7 });
+    expect(calls).toEqual([
+      { method: "GET", path: "/repos/owner/repo/issues/7" },
+      { method: "POST", path: "/repos/owner/repo/issues/7/comments", body: { body: "Progress" } },
+    ]);
+  });
+
+  test("closes only the target without querying or modifying references", async () => {
+    const { threads, calls } = fixture([page(issue), page({ ...issue, state: "closed" })]);
+    expect(await threads.close(7)).toEqual({ number: 7, state: "closed" });
+    expect(calls).toEqual([
+      { method: "GET", path: "/repos/owner/repo/issues/7" },
+      { method: "PATCH", path: "/repos/owner/repo/issues/7", body: { state: "closed" } },
+    ]);
+  });
+
+  test("closing an already closed thread requires no further write", async () => {
+    const { threads, calls } = fixture([page({ ...issue, state: "closed" })]);
+    expect(await threads.close(7)).toEqual({ number: 7, state: "closed" });
+    expect(calls).toHaveLength(1);
+  });
+
+  for (const operation of ["revise", "appendUpdate", "close"] as const) {
+    test(`${operation} rejects PR targets without writing`, async () => {
+      const { threads, calls } = fixture([page({ ...issue, pull_request: {} })]);
+      const action =
+        operation === "close"
+          ? threads.close(7)
+          : threads[operation]({ number: 7, body: "New content" });
+      await expect(action).rejects.toThrow("pull request");
+      expect(calls).toHaveLength(1);
+    });
+  }
+
+  test("propagates preflight failures without writing", async () => {
+    const { threads, calls } = fixture([new Error("HTTP 404")]);
+    await expect(threads.revise({ number: 7, body: "Replacement" })).rejects.toThrow("HTTP 404");
+    expect(calls).toHaveLength(1);
+  });
+
+  test("does not retry failed comment creation", async () => {
+    const { threads, calls } = fixture([page(issue), new Error("HTTP 502")]);
+    await expect(threads.appendUpdate({ number: 7, body: "Progress" })).rejects.toThrow(
+      "Verify the thread before retrying",
+    );
+    expect(calls).toHaveLength(2);
+  });
+
+  test("rejects invalid success responses and warns before retrying", async () => {
+    const { threads } = fixture([page({ message: "invalid response" })]);
+    await expect(threads.create({ title: "Title", body: "Body" })).rejects.toThrow(
+      "Verify the thread before retrying",
+    );
+    const append = fixture([page(issue), page({ body: "Missing comment id" })]);
+    await expect(append.threads.appendUpdate({ number: 7, body: "Progress" })).rejects.toThrow(
+      "Verify the thread before retrying",
+    );
+    const close = fixture([page(issue), page(issue)]);
+    await expect(close.threads.close(7)).rejects.toThrow("not closed");
+  });
+
+  test("rejects mismatched thread numbers in write responses", async () => {
+    const { threads } = fixture([page(issue), page({ ...issue, number: 8 })]);
+    await expect(threads.revise({ number: 7, body: "Replacement" })).rejects.toThrow(
+      "thread number",
+    );
+  });
+
+  test("pre-aborted writes do not make requests", async () => {
+    const { threads, calls } = fixture([]);
+    await expect(
+      threads.create({ title: "Title", body: "Body" }, AbortSignal.abort()),
+    ).rejects.toThrow();
+    expect(calls).toHaveLength(0);
+  });
+});

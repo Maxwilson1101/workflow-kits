@@ -1,7 +1,8 @@
-import { createGh, type Gh, type Repository } from "./gh.ts";
+import { createGh, type Gh, type Repository, type RestRequest } from "./gh.ts";
 
 type ThreadState = "open" | "closed";
 type ListInput = { state?: ThreadState | "all"; cursor?: string };
+type BodyInput = { number: number; body: string };
 type CursorData = { repository: string; state: ThreadState | "all"; page: number };
 type Update = { body: string; author: string; createdAt: string };
 
@@ -85,6 +86,30 @@ export function createThreads(options: { cwd: string; gh?: Gh; maxResultBytes?: 
   function repositoryKey(repository: Repository) {
     return `${repository.host}/${repository.name}`;
   }
+  function threadResult(data: unknown, number?: number) {
+    const parsed = issue(data);
+    if (number !== undefined && parsed.number !== number) {
+      throw new Error("Unexpected thread number in GitHub response.");
+    }
+    return { number: parsed.number, state: parsed.state };
+  }
+  async function write<T>(
+    request: RestRequest,
+    parse: (data: unknown) => T,
+    signal?: AbortSignal,
+  ): Promise<T> {
+    signal?.throwIfAborted();
+    try {
+      const response = await gh.request(request, signal);
+      return parse(response.data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid write response.";
+      if (message.includes("Verify the thread before retrying")) throw error;
+      throw new Error(
+        `${message} The write may have completed. Verify the thread before retrying.`,
+      );
+    }
+  }
   return {
     async list(input: ListInput, signal?: AbortSignal) {
       const { repository, path } = await context(signal);
@@ -142,6 +167,54 @@ export function createThreads(options: { cwd: string; gh?: Gh; maxResultBytes?: 
       }
       updates.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       return result;
+    },
+    async create(input: { title: string; body: string }, signal?: AbortSignal) {
+      const { path } = await context(signal);
+      return write(
+        { method: "POST", path, body: { title: input.title, body: input.body } },
+        (data) => threadResult(data),
+        signal,
+      );
+    },
+    async revise(input: BodyInput, signal?: AbortSignal) {
+      const { path } = await context(signal);
+      await requireIssue(path, input.number, signal);
+      return write(
+        { method: "PATCH", path: `${path}/${input.number}`, body: { body: input.body } },
+        (data) => threadResult(data, input.number),
+        signal,
+      );
+    },
+    async appendUpdate(input: BodyInput, signal?: AbortSignal) {
+      const { path } = await context(signal);
+      await requireIssue(path, input.number, signal);
+      return write(
+        { method: "POST", path: `${path}/${input.number}/comments`, body: { body: input.body } },
+        (value) => {
+          const data = object(value);
+          if (typeof data.id !== "number" || !Number.isSafeInteger(data.id) || data.id < 1) {
+            throw new Error("Invalid comment ID in GitHub response.");
+          }
+          text(data.body);
+          return { number: input.number };
+        },
+        signal,
+      );
+    },
+    async close(number: number, signal?: AbortSignal) {
+      const { path } = await context(signal);
+      const current = await requireIssue(path, number, signal);
+      if (current.state === "closed") return { number, state: current.state };
+      return write(
+        { method: "PATCH", path: `${path}/${number}`, body: { state: "closed" } },
+        (data) => {
+          const result = threadResult(data, number);
+          if (result.state !== "closed")
+            throw new Error("Thread was not closed in GitHub response.");
+          return result;
+        },
+        signal,
+      );
     },
   };
 }
