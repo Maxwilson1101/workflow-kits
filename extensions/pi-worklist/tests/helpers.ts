@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   initTheme,
+  type ExtensionUIDialogOptions,
   type KeybindingsManager,
   type ExtensionContext,
   type ExtensionUIContext,
@@ -13,7 +14,17 @@ import { getKeybindings, type Component, type TUI } from "@earendil-works/pi-tui
 
 initTheme("dark", false);
 
-export function createUI(onComponent: (component: Component) => void = () => {}) {
+export interface UIConfig {
+  choice?: string;
+  onSelect?: (title: string, optionList: string[]) => void;
+}
+
+export const testTheme = {
+  fg: (_color: string, value: string) => value,
+  bold: (value: string) => value,
+} as Theme;
+
+export function createUI(config: UIConfig = {}) {
   const tui = {
     terminal: { rows: 24, columns: 80 },
     stop: mock(() => {}),
@@ -21,10 +32,12 @@ export function createUI(onComponent: (component: Component) => void = () => {})
     requestRender: mock((_force?: boolean) => {}),
   };
   const notify = mock((_message: string, _type?: string) => {});
-  const theme = {
-    fg: (_color: string, value: string) => value,
-    bold: (value: string) => value,
-  } as Theme;
+  const select = mock(
+    async (_title: string, _optionList: string[], _opts?: ExtensionUIDialogOptions) => {
+      config.onSelect?.(_title, _optionList);
+      return config.choice;
+    },
+  );
   const custom = mock(
     (factory: Parameters<ExtensionUIContext["custom"]>[0]) =>
       new Promise<unknown>((resolve, reject) => {
@@ -38,12 +51,11 @@ export function createUI(onComponent: (component: Component) => void = () => {})
         };
         Promise.resolve()
           .then(() =>
-            factory(tui as unknown as TUI, theme, getKeybindings() as KeybindingsManager, done),
+            factory(tui as unknown as TUI, testTheme, getKeybindings() as KeybindingsManager, done),
           )
           .then((value) => {
             component = value;
             if (finished) component.dispose?.();
-            else onComponent(component);
           })
           .catch(reject);
       }),
@@ -52,9 +64,9 @@ export function createUI(onComponent: (component: Component) => void = () => {})
     mode: "tui",
     hasUI: true,
     cwd: process.cwd(),
-    ui: { custom, notify, theme },
+    ui: { custom, notify, select, theme: testTheme },
   } as unknown as ExtensionContext;
-  return { ctx, tui, custom, notify };
+  return { ctx, tui, custom, notify, select };
 }
 
 export async function createEditor(source: string) {

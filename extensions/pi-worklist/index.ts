@@ -22,7 +22,30 @@ const worklistParameters = Type.Object(
   { additionalProperties: false },
 );
 
+interface WorklistPreview {
+  content: string;
+}
+
+const previewEntry = "worklist-preview";
+
 export default function (pi: ExtensionAPI) {
+  pi.registerEntryRenderer<WorklistPreview>(
+    previewEntry,
+    (entry) =>
+      new Markdown(
+        entry.data?.content ?? "",
+        pi.getSettings().outputPad ?? 1,
+        0,
+        getMarkdownTheme(),
+        undefined,
+        {
+          preserveOrderedListMarkers: true,
+          preserveBackslashEscapes: true,
+          renderLatex: false,
+        },
+      ),
+  );
+
   pi.registerTool(
     defineTool<typeof worklistParameters, ReviewResult>({
       name: "review_worklist",
@@ -61,7 +84,8 @@ export default function (pi: ExtensionAPI) {
           });
         }
         try {
-          const choice = await showReview(ctx, params.content, signal);
+          pi.appendEntry<WorklistPreview>(previewEntry, { content: params.content });
+          const choice = await showReview(ctx, signal);
           if (signal?.aborted || choice === "cancel") {
             return reviewResult({ decision: "cancel", reason: "Review cancelled." });
           }
