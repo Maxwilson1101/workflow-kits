@@ -31,8 +31,6 @@
       "./extensions/pi-wikipedia/index.ts",
       "./extensions/pi-worklist/index.ts"
     ],
-    "skills": [
-      "./skills/lookup-wikipedia"
-    ]
+    "skills": []
   }
 }
