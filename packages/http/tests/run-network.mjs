@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const root = mkdtempSync(join(tmpdir(), "workflow-http-tls-"));
 try {
@@ -39,13 +40,22 @@ try {
       /_proxy$/i.test(name) ||
       name.startsWith("npm_config_proxy") ||
       name === "NODE_OPTIONS" ||
+      name === "NODE_TLS_REJECT_UNAUTHORIZED" ||
       name === "NODE_USE_ENV_PROXY"
     )
       delete env[name];
   }
+  const files = process.argv.slice(2);
+  const defaultPattern = fileURLToPath(new URL("./network/*.network.ts", import.meta.url));
   const run = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", "--test", "./tests/network/*.network.ts"],
+    [
+      "--experimental-strip-types",
+      "--import",
+      new URL("./fixtures/local-dns.mjs", import.meta.url).href,
+      "--test",
+      ...(files.length ? files : [defaultPattern]),
+    ],
     {
       stdio: "inherit",
       env: { ...env, NODE_EXTRA_CA_CERTS: cert, HTTP_TEST_CERT: cert, HTTP_TEST_KEY: key },

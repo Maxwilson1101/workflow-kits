@@ -86,6 +86,8 @@ export async function proxy(
       },
       (response) => {
         res.writeHead(response.statusCode!, response.headers);
+        res.flushHeaders();
+        response.on("error", () => res.destroy());
         response.pipe(res);
       },
     );
@@ -96,6 +98,7 @@ export async function proxy(
     upstream.on("error", () => {
       res.destroy();
     });
+    res.on("close", () => upstream.destroy());
     req.pipe(upstream);
   });
   server.on("connect", (req, socket, head) => {

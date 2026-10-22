@@ -10,7 +10,8 @@
   "scripts": {
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",
-    "test": "bun run --workspaces test"
+    "test": "bun run --workspaces test && bun run test:network",
+    "test:network": "node ./packages/http/tests/run-network.mjs ./tests/network/*.network.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
