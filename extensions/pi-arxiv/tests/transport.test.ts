@@ -58,3 +58,28 @@ test("arXiv stalled response body honors cancellation and the queue recovers", a
   expect((await request("https://arxiv.org/pdf/1706.03762")).toString()).toBe("recovered");
   expect(body.locked).toBe(false);
 });
+
+test("arXiv labels its own timeout while leaving cancellation untouched", async () => {
+  process.env.no_proxy = "*";
+  const timedOut = createClient({
+    sleep: async () => {},
+    timeoutMs: 20,
+    fetch: async () => new Promise<Response>(() => {}),
+  });
+  const timeout = await timedOut("https://export.arxiv.org/api/query").catch(
+    (error: Error) => error,
+  );
+  expect(timeout).toBeInstanceOf(DOMException);
+  expect((timeout as DOMException).name).toBe("TimeoutError");
+  expect((timeout as Error).message).toBe(
+    "arXiv request timed out while queued, waiting, or downloading.",
+  );
+  const owner = new AbortController();
+  owner.abort();
+  await expect(
+    createClient({ sleep: async () => {}, fetch: async () => new Response("unused") })(
+      "https://export.arxiv.org/api/query",
+      owner.signal,
+    ),
+  ).rejects.toBe(owner.signal.reason);
+});

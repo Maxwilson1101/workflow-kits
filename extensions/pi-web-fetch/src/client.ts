@@ -53,6 +53,13 @@ export function normalizeUrl(raw: string) {
   return url.href;
 }
 
+export function timeoutFailure() {
+  return new DOMException(
+    "Web fetch timed out while waiting for or downloading the response.",
+    "TimeoutError",
+  );
+}
+
 export function abortable<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
     const abort = () => reject(signal.reason);
@@ -141,6 +148,9 @@ export function createClient(options: ClientOptions = {}): Request {
       () => {},
       () => {},
     );
-    return abortable(task, combined);
+    return abortable(task, combined).catch((error: unknown) => {
+      if (combined.reason?.name === "TimeoutError") throw timeoutFailure();
+      throw error;
+    });
   };
 }

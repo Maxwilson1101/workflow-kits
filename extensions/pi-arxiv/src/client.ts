@@ -80,6 +80,14 @@ export function createClient(options: ClientOptions = {}): Request {
       combined.addEventListener("abort", abort, { once: true });
       task.then(resolve, reject).finally(() => combined.removeEventListener("abort", abort));
       if (combined.aborted) abort();
+    }).catch((error: unknown) => {
+      if (combined.reason?.name === "TimeoutError") {
+        throw new DOMException(
+          "arXiv request timed out while queued, waiting, or downloading.",
+          "TimeoutError",
+        );
+      }
+      throw error;
     });
   };
 }

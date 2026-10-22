@@ -79,7 +79,9 @@ describe("HTTP client", () => {
 
   test("times out while reading a stalled body", async () => {
     const fetch = mock(async () => new Response(new ReadableStream({ start() {} })));
-    await expect(createClient({ fetch, timeoutMs: 20 })("https://example.com")).rejects.toThrow();
+    await expect(createClient({ fetch, timeoutMs: 20 })("https://example.com")).rejects.toThrow(
+      "Web fetch timed out while waiting for or downloading the response.",
+    );
   });
 
   test("timeout includes waiting in the request queue", async () => {
@@ -97,6 +99,11 @@ describe("HTTP client", () => {
       request("https://example.com/2"),
     ]);
     expect(results.every((result) => result.status === "rejected")).toBe(true);
+    for (const result of results) {
+      expect(result.status === "rejected" && String(result.reason)).toContain(
+        "Web fetch timed out while waiting for or downloading the response.",
+      );
+    }
   });
 
   test("spaces requests and honors Retry-After without automatic retries", async () => {

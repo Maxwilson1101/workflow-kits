@@ -6,7 +6,7 @@ import {
   type CachedPage,
   type Metadata,
 } from "./cache.ts";
-import { abortable, isTemporaryError, normalizeUrl, type Request } from "./client.ts";
+import { abortable, isTemporaryError, normalizeUrl, timeoutFailure, type Request } from "./client.ts";
 import { parsePage } from "./parse.ts";
 
 export interface FetchInput {
@@ -126,14 +126,16 @@ export function createFetcher(cacheDir: string, request: Request, options: Fetch
       return await abortable(task, combined);
     } catch (error) {
       signal?.throwIfAborted();
-      if (!isTemporaryError(error)) throw error;
+      const failure =
+        error instanceof Error && error.name === "TimeoutError" ? timeoutFailure() : error;
+      if (!isTemporaryError(failure)) throw failure;
       const cached = await cache.load(url);
       signal?.throwIfAborted();
-      if (!cached) throw error;
+      if (!cached) throw failure;
       return result(
         cached,
         "stale",
-        `Refresh failed; returning previously cached content. ${error instanceof Error ? error.message : String(error)}`,
+        `Refresh failed; returning previously cached content. ${failure instanceof Error ? failure.message : String(failure)}`,
       );
     }
   };

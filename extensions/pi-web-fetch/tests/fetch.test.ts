@@ -209,7 +209,9 @@ describe("persistent cache", () => {
     const second = await run({ url });
     expect(second.cache).toBe("stale");
     expect(second.validatedAt).toBe(first.validatedAt);
-    expect(second.warning).toBeTruthy();
+    expect(second.warning).toContain(
+      "Web fetch timed out while waiting for or downloading the response.",
+    );
   });
 
   test("rejects an unsolicited 304 instead of publishing an empty cache", async () => {
