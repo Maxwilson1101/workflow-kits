@@ -6,7 +6,7 @@
   "exports": "./src/index.ts",
   "scripts": {
     "test": "bun run test:unit && bun run test:network",
-    "test:unit": "bun test ./tests/unit",
+    "test:unit": "bun test --preload ../../tests/setup.ts ./tests/unit",
     "test:network": "node ./tests/run-network.mjs"
   },
   "dependencies": {
