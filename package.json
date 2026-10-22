@@ -12,17 +12,15 @@
     "typecheck": "tsc --noEmit",
     "test": "bun run --workspaces test"
   },
-  "dependencies": {
-    "@earendil-works/pi-ai": "^1.4.0",
-    "@earendil-works/pi-coding-agent": "^1.4.0",
-    "@earendil-works/pi-tui": "^1.4.0",
-    "typebox": "^1.4.3"
-  },
   "devDependencies": {
     "@types/bun": "latest",
     "oxfmt": "^0.74.0"
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*",
     "typescript": "^7.0.2"
   },
   "pi": {
