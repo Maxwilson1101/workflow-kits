@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+import { createTransport } from "./proxy.ts";
 
 export interface Download {
   response: Response;
@@ -82,6 +83,7 @@ export function abortable<T>(task: Promise<T>, signal: AbortSignal): Promise<T> 
 
 export function createClient(options: ClientOptions = {}): Request {
   const fetch = options.fetch ?? globalThis.fetch;
+  const transport = createTransport();
   const now = options.now ?? Date.now;
   const sleep =
     options.sleep ??
@@ -105,8 +107,10 @@ export function createClient(options: ClientOptions = {}): Request {
       if (wait > 0) await abortable(sleep(wait, signal), signal);
       signal.throwIfAborted();
       nextRequest = now() + (options.minIntervalMs ?? 1000);
+      const route = transport(url);
       const response = await abortable(
         fetch(url, {
+          ...route.options,
           signal,
           redirect: "manual",
           credentials: "omit",
@@ -119,7 +123,10 @@ export function createClient(options: ClientOptions = {}): Request {
         signal,
       ).catch((cause: unknown) => {
         signal.throwIfAborted();
-        throw new NetworkError("Web network request failed; no HTTP response was received.", cause);
+        throw new NetworkError(
+          `Web network request failed; no HTTP response was received. ${route.description}`,
+          cause,
+        );
       });
 
       if ([301, 302, 303, 307, 308].includes(response.status)) {
@@ -157,7 +164,10 @@ export function createClient(options: ClientOptions = {}): Request {
           signal.throwIfAborted();
           const part = await abortable(reader.read(), signal).catch((cause: unknown) => {
             signal.throwIfAborted();
-            throw new NetworkError("Web response body could not be downloaded.", cause);
+            throw new NetworkError(
+              `Web response body could not be downloaded. ${route.description}`,
+              cause,
+            );
           });
           if (part.done) break;
           size += part.value.byteLength;
