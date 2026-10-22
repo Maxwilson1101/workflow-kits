@@ -40,11 +40,16 @@ export function createClient(options: ClientOptions = {}): Request {
     return withHttpTransport({ label: "arXiv", fetch: options.fetch }, async (http) => {
       const response = await http.fetch(url.href, {
         signal,
-        redirect: "error",
+        redirect: "manual",
         headers: { "User-Agent": "pi-arxiv/0.1.0 (local Pi extension)" },
       });
       if (!response.ok) {
         await http.discard(response);
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+          throw new Error(
+            `arXiv HTTP ${response.status}: redirects are not supported; the request was not followed.`,
+          );
+        }
         const retry = response.headers.get("Retry-After");
         const seconds = retry && /^\d+$/.test(retry) ? Number(retry) : NaN;
         const until = retry ? Date.parse(retry) : NaN;
