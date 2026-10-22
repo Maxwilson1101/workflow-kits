@@ -7,14 +7,12 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@workflow-kits/http": "workspace:*",
     "linkedom": "^0.18.12",
-    "proxy-from-env": "^2.1.0",
     "turndown": "^7.2.2",
-    "turndown-plugin-gfm": "^1.0.2",
-    "undici": "^8.12.3"
+    "turndown-plugin-gfm": "^1.0.2"
   },
   "devDependencies": {
-    "@types/proxy-from-env": "^1.0.4",
     "@types/turndown": "^5.0.5"
   },
   "peerDependencies": {

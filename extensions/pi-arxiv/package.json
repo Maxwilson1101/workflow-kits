@@ -7,6 +7,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@workflow-kits/http": "workspace:*",
     "fast-xml-parser": "^5.3.5"
   },
   "peerDependencies": {

@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+import { HttpNetworkError, withHttpTransport } from "@workflow-kits/http";
 
 export type Request = (path: string, signal?: AbortSignal) => Promise<unknown>;
 interface ClientOptions {
@@ -23,7 +24,6 @@ export function text(value: unknown, name: string): string {
 }
 
 export function createClient(options: ClientOptions = {}): Request {
-  const fetch = options.fetch ?? globalThis.fetch;
   const sleep =
     options.sleep ??
     (async (ms, signal) => {
@@ -41,97 +41,72 @@ export function createClient(options: ClientOptions = {}): Request {
     if (!path.startsWith("/page/") && !path.startsWith("/search/page?")) {
       throw new Error("Unsupported Wikipedia endpoint.");
     }
-    let url = new URL(`${base}${path}`);
-    let retries = 0;
-    let redirects = 0;
-    while (true) {
-      signal.throwIfAborted();
-      const wait = nextRequest - Date.now();
-      if (wait > 0) await sleep(wait, signal);
-      signal.throwIfAborted();
-      nextRequest = Date.now() + interval;
-      const response = await fetch(url.href, {
-        signal,
-        redirect: "manual",
-        headers: {
-          Accept: "application/json",
-          "User-Agent": userAgent,
-        },
-      }).catch((error: unknown) => {
+    return withHttpTransport({ label: "Wikipedia", fetch: options.fetch }, async (http) => {
+      let url = new URL(`${base}${path}`);
+      let retries = 0;
+      let redirects = 0;
+      while (true) {
         signal.throwIfAborted();
-        throw new Error(
-          "Wikipedia network request failed; no HTTP response was received. " +
-            "The cause is unknown; rate limiting is not confirmed.",
-          { cause: error },
-        );
-      });
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
-        await response.body?.cancel();
-        const location = response.headers.get("Location");
-        if (!location || ++redirects > 5) throw new Error("Invalid Wikipedia redirect.");
-        const target = new URL(location, url);
-        if (
-          target.origin !== url.origin ||
-          target.username ||
-          target.password ||
-          !target.pathname.startsWith("/w/rest.php/v1/page/")
-        ) {
-          throw new Error("Unsafe Wikipedia redirect.");
+        const wait = nextRequest - Date.now();
+        if (wait > 0) await sleep(wait, signal);
+        signal.throwIfAborted();
+        nextRequest = Date.now() + interval;
+        const response = await http.fetch(url.href, {
+          signal,
+          redirect: "manual",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": userAgent,
+          },
+        });
+        if ([301, 302, 303, 307, 308].includes(response.status)) {
+          await http.discard(response);
+          const location = response.headers.get("Location");
+          if (!location || ++redirects > 5) throw new Error("Invalid Wikipedia redirect.");
+          const target = new URL(location, url);
+          if (
+            target.origin !== url.origin ||
+            target.username ||
+            target.password ||
+            !target.pathname.startsWith("/w/rest.php/v1/page/")
+          ) {
+            throw new Error("Unsafe Wikipedia redirect.");
+          }
+          url = target;
+          continue;
         }
-        url = target;
-        continue;
-      }
-      if ([429, 502, 503, 504].includes(response.status)) {
-        await response.body?.cancel();
-        const header = response.headers.get("Retry-After");
-        const seconds = header && /^\d+$/.test(header.trim()) ? Number(header) : NaN;
-        const parsed = header ? Date.parse(header) : NaN;
-        const retryMs = Number.isFinite(seconds)
-          ? seconds * 1000
-          : Number.isFinite(parsed)
-            ? Math.max(0, parsed - Date.now())
-            : 5000 * 2 ** retries;
-        nextRequest = Math.max(nextRequest, Date.now() + retryMs);
-        if (retries++ >= 2) {
-          const reason = response.status === 429 ? "rate limited" : "service unavailable";
-          const retry =
-            Number.isFinite(seconds) || Number.isFinite(parsed)
-              ? ` Retry-After: ${Math.ceil(retryMs / 1000)} seconds.`
-              : "";
-          throw new Error(
-            `Wikipedia HTTP ${response.status}: ${reason}; failed after 3 attempts.${retry}`,
-          );
+        if ([429, 502, 503, 504].includes(response.status)) {
+          await http.discard(response);
+          const header = response.headers.get("Retry-After");
+          const seconds = header && /^\d+$/.test(header.trim()) ? Number(header) : NaN;
+          const parsed = header ? Date.parse(header) : NaN;
+          const retryMs = Number.isFinite(seconds)
+            ? seconds * 1000
+            : Number.isFinite(parsed)
+              ? Math.max(0, parsed - Date.now())
+              : 5000 * 2 ** retries;
+          nextRequest = Math.max(nextRequest, Date.now() + retryMs);
+          if (retries++ >= 2) {
+            const reason = response.status === 429 ? "rate limited" : "service unavailable";
+            const retry =
+              Number.isFinite(seconds) || Number.isFinite(parsed)
+                ? ` Retry-After: ${Math.ceil(retryMs / 1000)} seconds.`
+                : "";
+            throw new Error(
+              `Wikipedia HTTP ${response.status}: ${reason}; failed after 3 attempts.${retry}`,
+            );
+          }
+          await sleep(retryMs, signal);
+          continue;
         }
-        await sleep(retryMs, signal);
-        continue;
-      }
-      if (!response.ok) {
-        await response.body?.cancel();
-        throw new Error(`Wikipedia HTTP ${response.status}.`);
-      }
-      if (Number(response.headers.get("Content-Length")) > maxBytes) {
-        await response.body?.cancel();
-        throw new Error("Wikipedia response exceeds byte limit.");
-      }
-      if (!response.body) throw new Error("Empty Wikipedia response.");
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let size = 0;
-      try {
-        while (true) {
-          signal.throwIfAborted();
-          const part = await reader.read();
-          if (part.done) break;
-          size += part.value.byteLength;
-          if (size > maxBytes) throw new Error("Wikipedia response exceeds byte limit.");
-          chunks.push(part.value);
+        if (!response.ok) {
+          await http.discard(response);
+          throw new Error(`Wikipedia HTTP ${response.status}.`);
         }
-      } finally {
-        await reader.cancel();
-        reader.releaseLock();
+        const body = await http.readBody(response, { maxBytes, signal });
+        return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
       }
-      return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks)));
-    }
+    });
   }
 
   return async (path, signal) => {
@@ -159,6 +134,11 @@ export function createClient(options: ClientOptions = {}): Request {
       if (combined.aborted) abort();
     }).catch((error: unknown) => {
       if (combined.aborted) throw abortError();
+      if (error instanceof HttpNetworkError && error.phase === "request") {
+        throw new Error(`${error.message} The cause is unknown; rate limiting is not confirmed.`, {
+          cause: error.cause,
+        });
+      }
       throw error;
     });
   };

@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+import { HttpNetworkError, withHttpTransport } from "@workflow-kits/http";
 
 export type Request = (url: string, signal?: AbortSignal) => Promise<Buffer>;
 interface ClientOptions {
@@ -9,7 +10,6 @@ interface ClientOptions {
 }
 
 export function createClient(options: ClientOptions = {}): Request {
-  const fetch = options.fetch ?? globalThis.fetch;
   const sleep =
     options.sleep ??
     (async (ms, signal) => {
@@ -37,48 +37,32 @@ export function createClient(options: ClientOptions = {}): Request {
     if (wait > 0) await sleep(wait, signal);
     signal.throwIfAborted();
     nextRequest = Date.now() + 3000;
-    const response = await fetch(url.href, {
-      signal,
-      redirect: "error",
-      headers: { "User-Agent": "pi-arxiv/0.1.0 (local Pi extension)" },
-    }).catch((cause: unknown) => {
-      signal.throwIfAborted();
-      throw new Error("arXiv network request failed; no HTTP response was received.", { cause });
-    });
-    if (!response.ok) {
-      await response.body?.cancel();
-      const retry = response.headers.get("Retry-After");
-      const seconds = retry && /^\d+$/.test(retry) ? Number(retry) : NaN;
-      const until = retry ? Date.parse(retry) : NaN;
-      if (Number.isFinite(seconds))
-        nextRequest = Math.max(nextRequest, Date.now() + seconds * 1000);
-      else if (Number.isFinite(until)) nextRequest = Math.max(nextRequest, until);
-      throw new Error(`arXiv HTTP ${response.status}.${retry ? ` Retry-After: ${retry}.` : ""}`);
-    }
-    const maxBytes =
-      options.maxBytes ?? (url.hostname === "arxiv.org" ? 100 * 1024 * 1024 : 4 * 1024 * 1024);
-    if (Number(response.headers.get("Content-Length")) > maxBytes) {
-      await response.body?.cancel();
-      throw new Error("arXiv response exceeds byte limit.");
-    }
-    if (!response.body) throw new Error("Empty arXiv response.");
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    try {
-      while (true) {
-        signal.throwIfAborted();
-        const part = await reader.read();
-        if (part.done) break;
-        size += part.value.byteLength;
-        if (size > maxBytes) throw new Error("arXiv response exceeds byte limit.");
-        chunks.push(part.value);
+    return withHttpTransport({ label: "arXiv", fetch: options.fetch }, async (http) => {
+      const response = await http.fetch(url.href, {
+        signal,
+        redirect: "error",
+        headers: { "User-Agent": "pi-arxiv/0.1.0 (local Pi extension)" },
+      });
+      if (!response.ok) {
+        await http.discard(response);
+        const retry = response.headers.get("Retry-After");
+        const seconds = retry && /^\d+$/.test(retry) ? Number(retry) : NaN;
+        const until = retry ? Date.parse(retry) : NaN;
+        if (Number.isFinite(seconds))
+          nextRequest = Math.max(nextRequest, Date.now() + seconds * 1000);
+        else if (Number.isFinite(until)) nextRequest = Math.max(nextRequest, until);
+        throw new Error(`arXiv HTTP ${response.status}.${retry ? ` Retry-After: ${retry}.` : ""}`);
       }
-    } finally {
-      await reader.cancel();
-      reader.releaseLock();
-    }
-    return Buffer.concat(chunks);
+      const maxBytes =
+        options.maxBytes ?? (url.hostname === "arxiv.org" ? 100 * 1024 * 1024 : 4 * 1024 * 1024);
+      const body = await http.readBody(response, { maxBytes, signal });
+      return Buffer.from(body);
+    }).catch((error: unknown) => {
+      if (error instanceof HttpNetworkError && error.phase === "request") {
+        throw new Error(error.message, { cause: error.cause });
+      }
+      throw error;
+    });
   }
 
   return (url, signal) => {
