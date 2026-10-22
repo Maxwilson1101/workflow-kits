@@ -3,9 +3,6 @@
 Discuss the purpose, scope, expected behavior, and trade-offs before proposing
 concrete changes.
 
-Before implementation, preview the importance changes for review and revision.
-Summarize the key changes of documents. Show the important code changes in diff.
-
 ## Documentation
 
 - Write `.zh.md` files in Chinese and all other files in English.

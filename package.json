@@ -29,7 +29,7 @@
     "extensions": [
       "./extensions/pi-arxiv/index.ts",
       "./extensions/pi-wikipedia/index.ts",
-      "./extensions/pi-worklist/index.ts"
+      "./extensions/pi-preview/index.ts"
     ],
     "skills": []
   }

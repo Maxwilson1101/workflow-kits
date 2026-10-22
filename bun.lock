@@ -40,15 +40,6 @@
         "typebox": "^1.4.2",
       },
     },
-    "extensions/pi-worklist": {
-      "name": "pi-worklist",
-      "version": "0.1.0",
-      "peerDependencies": {
-        "@earendil-works/pi-coding-agent": "^1.3.0",
-        "@earendil-works/pi-tui": "^1.3.0",
-        "typebox": "^1.4.2",
-      },
-    },
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.129.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-MH7LB20kNpGLUpPTe2OG5XvL/KhX8HUO9XyBaFjgFk6TLS4Xjt0VPIuMKywe7POKKPslX+QxSlVok9e+8kG5Nw=="],
@@ -360,8 +351,6 @@
     "pi-arxiv": ["pi-arxiv@workspace:extensions/pi-arxiv"],
 
     "pi-wikipedia": ["pi-wikipedia@workspace:extensions/pi-wikipedia"],
-
-    "pi-worklist": ["pi-worklist@workspace:extensions/pi-worklist"],
 
     "proper-lockfile": ["proper-lockfile@4.1.2", "", { "dependencies": { "graceful-fs": "^4.2.4", "retry": "^0.12.0", "signal-exit": "^3.0.2" } }, "sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA=="],
 
