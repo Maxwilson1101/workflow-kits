@@ -6,8 +6,6 @@ concrete changes.
 Before implementation, preview the importance changes for review and revision.
 Summarize the key changes of documents. Show the important code changes in diff.
 
-Apply TDD to extensions changes only.
-
 ## Documentation
 
 - Write `.zh.md` files in Chinese and all other files in English.
