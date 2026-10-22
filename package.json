@@ -29,7 +29,8 @@
     "extensions": [
       "./extensions/pi-arxiv/index.ts",
       "./extensions/pi-wikipedia/index.ts",
-      "./extensions/pi-preview/index.ts"
+      "./extensions/pi-preview/index.ts",
+      "./extensions/pi-web-fetch/index.ts"
     ],
     "skills": []
   }
