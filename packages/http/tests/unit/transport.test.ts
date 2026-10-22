@@ -11,6 +11,42 @@ afterEach(() => {
 });
 const signal = () => new AbortController().signal;
 
+test.each([
+  [407, /authentication required \(HTTP 407\)/],
+  [502, /refused the tunnel \(HTTP 502\)/],
+] as const)("reports proxy tunnel status %s without credentials", async (status, expected) => {
+  const cause = Object.assign(new Error(`Proxy refused to open a tunnel: ${status} Rejected`), {
+    code: "ERR_PROXY_TUNNEL",
+  });
+  const error = await withHttpTransport(
+    {
+      label: "Fixture",
+      fetch: async () => {
+        throw new TypeError("fetch failed", { cause });
+      },
+    },
+    (http) => http.fetch("https://example.test"),
+  ).catch((error: unknown) => error);
+  expect(error).toBeInstanceOf(HttpNetworkError);
+  expect((error as HttpNetworkError).proxyStatus).toBe(status);
+  expect((error as HttpNetworkError).message).toMatch(expected);
+  expect((error as HttpNetworkError).message).not.toMatch(/alice|private-secret/);
+});
+
+test("leaves non-tunnel request failures without a proxy status note", async () => {
+  const error = await withHttpTransport(
+    {
+      label: "Fixture",
+      fetch: async () => {
+        throw Object.assign(new Error("refused"), { code: "ECONNREFUSED" });
+      },
+    },
+    (http) => http.fetch("https://example.test"),
+  ).catch((error: unknown) => error);
+  expect((error as HttpNetworkError).proxyStatus).toBeUndefined();
+  expect((error as HttpNetworkError).message).not.toContain("Proxy ");
+});
+
 test("passes headers and an owned dispatcher to injected fetch", async () => {
   const fetch = mock(async () => new Response("fixture"));
   await withHttpTransport({ label: "Fixture", fetch }, async (http) => {

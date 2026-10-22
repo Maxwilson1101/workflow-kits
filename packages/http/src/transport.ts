@@ -29,13 +29,43 @@ function networkCode(error: unknown): string | undefined {
   }
 }
 
+const tunnelPatterns = [
+  /Proxy response \((\d{3})\) !== 200 when HTTP Tunneling/,
+  /Proxy refused to open a tunnel: (\d{3})/,
+];
+
+function proxyTunnelStatus(error: unknown): number | undefined {
+  let cause = error;
+  for (let depth = 0; depth < 8; depth++) {
+    if (typeof cause !== "object" || cause === null) return;
+    const message = "message" in cause ? cause.message : undefined;
+    if (typeof message === "string") {
+      for (const pattern of tunnelPatterns) {
+        const status = pattern.exec(message);
+        if (status) return Number(status[1]);
+      }
+    }
+    cause = "cause" in cause ? cause.cause : undefined;
+  }
+}
+
+function tunnelNote(status: number | undefined) {
+  if (status === undefined) return "";
+  return status === 407
+    ? " Proxy authentication required (HTTP 407); check the proxy credentials."
+    : ` Proxy refused the tunnel (HTTP ${status}); the proxy may be unable to reach the destination.`;
+}
+
 export class HttpNetworkError extends Error {
   readonly code: string | undefined;
   readonly phase: "request" | "body";
   readonly route: string;
+  readonly proxyStatus: number | undefined;
 
   constructor(label: string, phase: "request" | "body", route: Route, cause: unknown) {
     let code = networkCode(cause);
+    const proxyStatus = phase === "request" ? proxyTunnelStatus(cause) : undefined;
+    if (proxyStatus !== undefined) code = "ERR_PROXY_TUNNEL";
     if (route.proxy && code) {
       const proxy = new URL(route.proxy);
       const secrets = [
@@ -48,13 +78,14 @@ export class HttpNetworkError extends Error {
     }
     const message =
       phase === "request"
-        ? `${label} network request failed; no HTTP response was received.`
+        ? `${label} network request failed; no HTTP response was received.${tunnelNote(proxyStatus)}`
         : `${label} response body could not be downloaded.`;
     super(`${message} ${route.description}${code ? ` Code: ${code}.` : ""}`, { cause });
     this.name = "HttpNetworkError";
     this.code = code;
     this.phase = phase;
     this.route = route.description;
+    this.proxyStatus = proxyStatus;
   }
 }
 

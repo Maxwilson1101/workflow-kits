@@ -69,7 +69,10 @@ test("NO_PROXY bypasses a configured rejecting proxy", { timeout: 5000 }, async 
   assert.equal(gateway.records.length, 0);
 });
 
-for (const status of [407, 502]) {
+for (const [status, expected] of [
+  [407, /authentication required \(HTTP 407\)/],
+  [502, /refused the tunnel \(HTTP 502\)/],
+] as const) {
   test(
     `CONNECT HTTP ${status} fails without direct fallback or credential disclosure`,
     { timeout: 5000 },
@@ -86,6 +89,8 @@ for (const status of [407, 502]) {
       await assert.rejects(download(target.url), (error: unknown) => {
         assert.ok(error instanceof HttpNetworkError);
         assert.equal(error.phase, "request");
+        assert.equal(error.proxyStatus, status);
+        assert.match(error.message, expected);
         assert.match(error.message, /Route: environment proxy/);
         assert.doesNotMatch(error.message, /alice|private-secret/);
         return true;
