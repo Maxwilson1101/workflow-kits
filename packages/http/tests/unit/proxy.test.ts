@@ -67,6 +67,20 @@ describe("proxy routing", () => {
     expect(resolveRoute("https://example.test").description).toContain("Route: direct");
   });
 
+  test("empty lowercase settings fall back to uppercase and empty protocol settings to ALL_PROXY", () => {
+    environment({
+      https_proxy: "",
+      HTTPS_PROXY: "http://localhost:8000",
+      ALL_PROXY: "http://localhost:8001",
+    });
+    expect(resolveRoute("https://example.test").proxy).toBe("http://localhost:8000");
+    process.env.HTTPS_PROXY = "";
+    expect(resolveRoute("https://example.test").proxy).toBe("http://localhost:8001");
+    process.env.no_proxy = "";
+    process.env.NO_PROXY = "*";
+    expect(resolveRoute("https://example.test").proxy).toBeUndefined();
+  });
+
   test.each([
     "socks5://user:secret@localhost:8000",
     "http://user:secret@[",

@@ -3,11 +3,19 @@ import { mkdtemp, rm } from "node:fs/promises";
 import * as os from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { Fetch } from "@workflow-kits/http";
 import register from "../index.ts";
+import * as client from "../src/client.ts";
+
+const createClient = client.createClient;
 
 const original = process.env.XDG_HOME_CACHE;
 const roots: string[] = [];
 const mocks: Array<{ mockRestore(): void }> = [];
+
+function stubFetch(fetch: Fetch) {
+  mocks.push(spyOn(client, "createClient").mockImplementation(() => createClient({ fetch })));
+}
 afterEach(async () => {
   for (const mock of mocks.splice(0).reverse()) mock.mockRestore();
   if (original === undefined) delete process.env.XDG_HOME_CACHE;
@@ -24,7 +32,7 @@ for (const mode of ["configured", "missing", "empty"]) {
     const cache = mode === "configured" ? join(root, "cache") : join(home, ".cache");
     if (mode === "missing") delete process.env.XDG_HOME_CACHE;
     else process.env.XDG_HOME_CACHE = mode === "empty" ? "" : cache;
-    mocks.push(spyOn(globalThis, "fetch").mockResolvedValue(new Response("%PDF-1.7\nexample")));
+    stubFetch(async () => new Response("%PDF-1.7\nexample"));
     const tools: Parameters<ExtensionAPI["registerTool"]>[0][] = [];
     register({
       registerTool: (tool: Parameters<ExtensionAPI["registerTool"]>[0]) => tools.push(tool),

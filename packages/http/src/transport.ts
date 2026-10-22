@@ -34,12 +34,13 @@ const tunnelPatterns = [
   /Proxy refused to open a tunnel: (\d{3})/,
 ];
 
-function proxyTunnelStatus(error: unknown): number | undefined {
+function proxyFailureStatus(error: unknown): number | undefined {
   let cause = error;
   for (let depth = 0; depth < 8; depth++) {
     if (typeof cause !== "object" || cause === null) return;
     const message = "message" in cause ? cause.message : undefined;
     if (typeof message === "string") {
+      if (message === "Proxy Authentication Required (407)") return 407;
       for (const pattern of tunnelPatterns) {
         const status = pattern.exec(message);
         if (status) return Number(status[1]);
@@ -64,8 +65,9 @@ export class HttpNetworkError extends Error {
 
   constructor(label: string, phase: "request" | "body", route: Route, cause: unknown) {
     let code = networkCode(cause);
-    const proxyStatus = phase === "request" ? proxyTunnelStatus(cause) : undefined;
-    if (proxyStatus !== undefined) code = "ERR_PROXY_TUNNEL";
+    const proxyStatus = phase === "request" && route.proxy ? proxyFailureStatus(cause) : undefined;
+    if (proxyStatus !== undefined)
+      code = proxyStatus === 407 ? "ERR_PROXY_AUTH" : "ERR_PROXY_TUNNEL";
     if (route.proxy && code) {
       const proxy = new URL(route.proxy);
       const secrets = [
@@ -78,7 +80,9 @@ export class HttpNetworkError extends Error {
     }
     const message =
       phase === "request"
-        ? `${label} network request failed; no HTTP response was received.${tunnelNote(proxyStatus)}`
+        ? proxyStatus !== undefined
+          ? `${label} proxy request failed.${tunnelNote(proxyStatus)}`
+          : `${label} network request failed; no HTTP response was received.`
         : `${label} response body could not be downloaded.`;
     super(`${message} ${route.description}${code ? ` Code: ${code}.` : ""}`, { cause });
     this.name = "HttpNetworkError";
@@ -132,7 +136,7 @@ export async function withHttpTransport<T>(
   options: { fetch?: Fetch; label: string },
   run: (http: HttpTransport) => Promise<T>,
 ): Promise<T> {
-  const fetch: Fetch = options.fetch ?? ((url, init) => globalThis.fetch(url, init));
+  const fetch: Fetch = options.fetch ?? (undiciFetch as Fetch);
   const owner = new AbortController();
   const agents = new Map<string, Agent | ProxyAgent>();
   const responses = new Map<Response, { route: Route; signal: AbortSignal }>();

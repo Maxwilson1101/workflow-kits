@@ -24,11 +24,11 @@ interface ClientOptions {
 }
 
 export class HttpError extends Error {
-  constructor(
-    public status: number,
-    retryAfter: string | null,
-  ) {
+  public status: number;
+
+  constructor(status: number, retryAfter: string | null) {
     super(`Web fetch HTTP ${status}.${retryAfter ? ` Retry-After: ${retryAfter}.` : ""}`);
+    this.status = status;
   }
 }
 

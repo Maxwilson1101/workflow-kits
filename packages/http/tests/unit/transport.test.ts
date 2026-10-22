@@ -15,6 +15,8 @@ test.each([
   [407, /authentication required \(HTTP 407\)/],
   [502, /refused the tunnel \(HTTP 502\)/],
 ] as const)("reports proxy tunnel status %s without credentials", async (status, expected) => {
+  delete process.env.no_proxy;
+  process.env.https_proxy = "http://alice:private-secret@localhost:8000";
   const cause = Object.assign(new Error(`Proxy refused to open a tunnel: ${status} Rejected`), {
     code: "ERR_PROXY_TUNNEL",
   });
@@ -30,7 +32,10 @@ test.each([
   expect(error).toBeInstanceOf(HttpNetworkError);
   expect((error as HttpNetworkError).proxyStatus).toBe(status);
   expect((error as HttpNetworkError).message).toMatch(expected);
-  expect((error as HttpNetworkError).message).not.toMatch(/alice|private-secret/);
+  expect((error as HttpNetworkError).code).toBe(
+    status === 407 ? "ERR_PROXY_AUTH" : "ERR_PROXY_TUNNEL",
+  );
+  expect((error as HttpNetworkError).message).not.toMatch(/alice|private-secret|no HTTP response/);
 });
 
 test("leaves non-tunnel request failures without a proxy status note", async () => {
@@ -234,3 +239,35 @@ test("discards declared oversized and unread bodies without waiting for cancella
     expect(cancel).toHaveBeenCalledTimes(1);
   }
 });
+
+test.each([
+  ["Proxy Authentication Required (407)", true, 407],
+  ["Unrelated invalid argument", true, undefined],
+  ["Proxy Authentication Required (407)", false, undefined],
+  ["Proxy refused to open a tunnel: 502 Rejected", false, undefined],
+] as const)(
+  "classifies proxy failures only on a proxy route: %s (%s)",
+  async (message, proxied, status) => {
+    if (proxied) {
+      delete process.env.no_proxy;
+      process.env.https_proxy = "http://alice:private-secret@localhost:8000";
+    }
+    const cause = Object.assign(new Error(message), { code: "UND_ERR_INVALID_ARG" });
+    const error = await withHttpTransport(
+      {
+        label: "Fixture",
+        fetch: async () => {
+          throw new TypeError("private-secret", { cause });
+        },
+      },
+      (http) => http.fetch("https://example.test"),
+    ).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(HttpNetworkError);
+    expect((error as HttpNetworkError).proxyStatus).toBe(status);
+    expect((error as HttpNetworkError).code).toBe(
+      status === 407 ? "ERR_PROXY_AUTH" : "UND_ERR_INVALID_ARG",
+    );
+    expect((error as HttpNetworkError).cause).toBeInstanceOf(TypeError);
+    expect(String(error)).not.toMatch(/alice|private-secret/);
+  },
+);

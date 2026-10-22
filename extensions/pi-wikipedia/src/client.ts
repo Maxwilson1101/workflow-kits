@@ -134,7 +134,11 @@ export function createClient(options: ClientOptions = {}): Request {
       if (combined.aborted) abort();
     }).catch((error: unknown) => {
       if (combined.aborted) throw abortError();
-      if (error instanceof HttpNetworkError && error.phase === "request") {
+      if (
+        error instanceof HttpNetworkError &&
+        error.phase === "request" &&
+        error.proxyStatus === undefined
+      ) {
         throw new Error(`${error.message} The cause is unknown; rate limiting is not confirmed.`, {
           cause: error.cause,
         });
