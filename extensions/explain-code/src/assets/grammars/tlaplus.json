@@ -1,0 +1,403 @@
+{
+  "scopeName": "source.tlaplus",
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "TLA+",
+  "foldingStartMarker": "\\\\* BEGIN TRANSLATION",
+  "foldingStopMarker": "\\\\* END TRANSLATION",
+  "patterns": [
+    {
+      "include": "#module"
+    }
+  ],
+  "repository": {
+    "pluscal": {
+      "begin": "(\\(\\*.*)--((?:fair\\s+)?algorithm)\\b",
+      "beginCaptures": {
+        "1": {
+          "name": "comment.line"
+        },
+        "2": {
+          "name": "keyword.other"
+        }
+      },
+      "end": "(?:(end\\s+algorithm)(?:;)?|\\})\\s*(\\*\\))",
+      "endCaptures": {
+        "1": {
+          "name": "keyword.other"
+        },
+        "2": {
+          "name": "comment.line"
+        }
+      },
+      "patterns": [
+        {
+          "include": "source.tlaplus.pluscal"
+        }
+      ]
+    },
+    "keywords": {
+      "name": "keyword.other.tlaplus",
+      "match": "\\b(?:EXTENDS|VARIABLE(S)?|LET|IN|EXCEPT|ENABLED|UNCHANGED|LAMBDA|DOMAIN|CONSTANT(S)?|CHOOSE|LOCAL|ASSUME|ASSUMPTION|AXIOM|RECURSIVE|INSTANCE|WITH|THEOREM|SUBSET|UNION|SF_|WF_|USE|DEFS|BY|DEF|SUFFICES|PROVE|OBVIOUS|NEW|QED|RECURSIVE|PICK|HIDE|DEFINE|WITNESS|HAVE|TAKE|PROOF|ACTION|COROLLARY|LEMMA|OMITTED|ONLY|PROPOSITION|STATE|TEMPORAL)\\b"
+    },
+    "control_keywords": {
+      "name": "keyword.control.tlaplus",
+      "match": "\\b(?:IF|THEN|ELSE|CASE|OTHER)\\b"
+    },
+    "embedded_operators": {
+      "patterns": [
+        {
+          "comment": "Set operators",
+          "match": "\\\\(in|notin|subseteq|subset|supseteq|supset|union|intersect|cup|cap|sqsubset|sqsupset|sqsubseteq|sqsupseteq|sqcap|sqcup|uplus|setminus)\\b|[∈∉⊆⊂⊇⊃∪∩⊏⊐⊑⊒⊓⊔⊎]",
+          "name": "keyword.operator.set.tlaplus"
+        },
+        {
+          "comment": "Logic operators",
+          "match": "\\\\(land|lor|lnot|neg|equiv|implies|iff)\\b|[∧∨¬≡⇒]",
+          "name": "keyword.operator.logic.tlaplus"
+        },
+        {
+          "comment": "Arithmetic operators",
+          "match": "\\\\(leq|geq|ll|gg|prec|succ|preceq|succeq|sim|simeq|asymp|approx|cong|neq|doteq|propto|models|perp|mid|parallel|bowtie|ltimes|rtimes|div|cdot|star|circ|bigcirc|bullet|wr|oplus|ominus|otimes|oslash|odot|dagger|ddagger)\\b|[≤≥≪≫≺≻⪯⪰∼≃≍≈≅≠≐∝⊨÷⋅⋆∘●◯≀⊕⊖⊗⊘⊙]",
+          "name": "keyword.operator.arithmetic.tlaplus"
+        },
+        {
+          "comment": "Quantifiers",
+          "match": "\\\\(A|E|forall|exists)\\b|[∀∃]",
+          "name": "keyword.operator.quantifier.tlaplus"
+        },
+        {
+          "comment": "Arrows",
+          "match": "\\\\(times|X)\\b|×",
+          "name": "keyword.operator.product.tlaplus"
+        },
+        {
+          "comment": "Other embedded operators",
+          "match": "\\\\[a-zA-Z]+\\b",
+          "name": "keyword.operator.tlaplus"
+        }
+      ]
+    },
+    "constants": {
+      "name": "support.constant.tlaplus",
+      "match": "\\b(?:TRUE|FALSE)\\b"
+    },
+    "numeric_constants": {
+      "name": "support.constant.tlaplus",
+      "match": "(?:\\b\\d+|\\\\(?:b|B)[01]+|\\\\(?:o|O)[0-7]+|\\\\(?:h|H)[0-9a-fA-F]+)\\b"
+    },
+    "strings": {
+      "name": "string.quoted.double.tlaplus",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.tlaplus",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "line_comments": {
+      "name": "comment.line",
+      "begin": "\\\\\\*",
+      "end": "$"
+    },
+    "block_comments": {
+      "name": "comment.block",
+      "begin": "\\(\\*",
+      "end": "\\*\\)"
+    },
+    "lines": {
+      "name": "comment.line",
+      "match": "^\\s*-{4,}\\s*$"
+    },
+    "var_definitions": {
+      "match": "(\\w+)\\s*==(?!\\s*INSTANCE|==)",
+      "captures": {
+        "1": {
+          "name": "support.type.primitive"
+        }
+      }
+    },
+    "postfix_operator_definitions": {
+      "match": "(\\w+\\s*(\\^\\+|\\^\\*|\\^#))\\s*==(?!==)",
+      "captures": {
+        "1": {
+          "name": "variable.parameter"
+        },
+        "2": {
+          "name": "entity.name.function"
+        }
+      }
+    },
+    "binary_operator_definitions": {
+      "match": "(\\w+\\s*(\\(?(?!\\\\\\*)[-<:>=&@/%#!X\\$\\*\\+\\.\\|\\?\\^\\\\]+\\)?|\\\\[a-z]+\\s)\\s*\\w+)\\s*==(?!==)",
+      "captures": {
+        "1": {
+          "name": "variable.parameter"
+        },
+        "2": {
+          "name": "entity.name.function"
+        }
+      }
+    },
+    "function_definitions": {
+      "match": "(\\w+)\\s*\\[(.*(?<!=)==(?!=))",
+      "captures": {
+        "1": {
+          "name": "entity.name.function"
+        },
+        "2": {
+          "patterns": [
+            {
+              "include": "source.tlaplus"
+            }
+          ]
+        }
+      }
+    },
+    "operators": {
+      "match": "(\\w+)\\s*\\((?!\\*)",
+      "captures": {
+        "1": {
+          "name": "entity.name.function"
+        }
+      }
+    },
+    "inst_modules": {
+      "match": "(\\w+)\\s*==\\s*(INSTANCE)\\b",
+      "captures": {
+        "1": {
+          "name": "entity.name.class"
+        },
+        "2": {
+          "name": "keyword.other"
+        }
+      }
+    },
+    "inst_module_refs": {
+      "match": "\\b(\\w+\\s*!)(?=\\w)",
+      "name": "entity.name.class"
+    },
+    "primed_operators": {
+      "match": "\\b(\\w+')",
+      "name": "variable.name"
+    },
+    "temporal_operators": {
+      "patterns": [
+        {
+          "comment": "Box (always) operator",
+          "match": "\\[\\]",
+          "name": "keyword.operator.temporal.always.tlaplus"
+        },
+        {
+          "comment": "Diamond (eventually) operator",
+          "match": "<>",
+          "name": "keyword.operator.temporal.eventually.tlaplus"
+        },
+        {
+          "comment": "Leads-to operator",
+          "match": "~>",
+          "name": "keyword.operator.temporal.leadsto.tlaplus"
+        },
+        {
+          "comment": "Action brackets",
+          "match": "\\[([^\\]]+)\\]_\\w+",
+          "name": "keyword.operator.temporal.action.tlaplus",
+          "captures": {
+            "1": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            }
+          }
+        },
+        {
+          "comment": "Angle action",
+          "match": "<([^>]+)>_\\w+",
+          "name": "keyword.operator.temporal.action.tlaplus",
+          "captures": {
+            "1": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            }
+          }
+        }
+      ]
+    },
+    "sequences": {
+      "patterns": [
+        {
+          "comment": "Sequence/tuple notation",
+          "begin": "<<",
+          "end": ">>",
+          "name": "meta.sequence.tlaplus",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.sequence.begin.tlaplus" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.sequence.end.tlaplus" }
+          },
+          "patterns": [{ "include": "source.tlaplus" }]
+        }
+      ]
+    },
+    "set_comprehension": {
+      "patterns": [
+        {
+          "comment": "Set comprehension",
+          "match": "(\\{)([^:]+)(:)([^}]+)(\\})",
+          "captures": {
+            "1": { "name": "punctuation.definition.set.begin.tlaplus" },
+            "2": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            },
+            "3": { "name": "keyword.operator.set.tlaplus" },
+            "4": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            },
+            "5": { "name": "punctuation.definition.set.end.tlaplus" }
+          }
+        }
+      ]
+    },
+    "function_construction": {
+      "patterns": [
+        {
+          "comment": "Function construction [x \\in S |-> expr]",
+          "match": "(\\[)([^\\|]+)(\\|->)([^\\]]+)(\\])",
+          "captures": {
+            "1": { "name": "punctuation.definition.function.begin.tlaplus" },
+            "2": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            },
+            "3": { "name": "keyword.operator.function.tlaplus" },
+            "4": {
+              "patterns": [{ "include": "source.tlaplus" }]
+            },
+            "5": { "name": "punctuation.definition.function.end.tlaplus" }
+          }
+        }
+      ]
+    },
+    "range_operator": {
+      "match": "\\.\\.",
+      "name": "keyword.operator.range.tlaplus"
+    },
+    "module": {
+      "begin": "(\\s*-{4,}\\s*)(MODULE)\\s*(\\w+)\\s*(-{4,})",
+      "beginCaptures": {
+        "1": {
+          "name": "comment.line"
+        },
+        "2": {
+          "name": "keyword.other"
+        },
+        "3": {
+          "name": "entity.name.class"
+        },
+        "4": {
+          "name": "comment.line"
+        }
+      },
+      "end": "(={4,}\\s*)",
+      "endCaptures": {
+        "1": {
+          "name": "comment.line"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#module"
+        },
+        {
+          "include": "#pluscal"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#control_keywords"
+        },
+        {
+          "include": "#embedded_operators"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#line_comments"
+        },
+        {
+          "include": "#block_comments"
+        },
+        {
+          "include": "#lines"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "include": "#numeric_constants"
+        },
+        {
+          "include": "#var_definitions"
+        },
+        {
+          "include": "#postfix_operator_definitions"
+        },
+        {
+          "include": "#binary_operator_definitions"
+        },
+        {
+          "include": "#function_definitions"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#inst_modules"
+        },
+        {
+          "include": "#inst_module_refs"
+        },
+        {
+          "include": "#primed_operators"
+        },
+        {
+          "include": "#temporal_operators"
+        },
+        {
+          "include": "#sequences"
+        },
+        {
+          "include": "#set_comprehension"
+        },
+        {
+          "include": "#function_construction"
+        },
+        {
+          "include": "#range_operator"
+        },
+        {
+          "include": "#except_vars"
+        },
+        {
+          "include": "#record_fields"
+        }
+      ]
+    },
+    "except_vars": {
+      "match": "(?<=EXCEPT.*[^@])(@|!)(?!@)",
+      "name": "variable.name"
+    },
+    "record_fields": {
+      "patterns": [
+        {
+          "match": "(\\w+)\\s*(?=\\|->)",
+          "captures": {
+            "1": {
+              "name": "string.quoted.double.tlaplus"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

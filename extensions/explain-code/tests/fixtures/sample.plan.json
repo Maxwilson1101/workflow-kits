@@ -1,0 +1,41 @@
+{
+  "title": "正数筛选",
+  "intro": ["逐个检查输入值，只收集正数。"],
+  "sections": [
+    {
+      "start": 1,
+      "end": 6,
+      "title": "筛选正数",
+      "intro": ["函数遍历输入列表，把大于零的值累积到新列表并返回。"],
+      "notes": [
+        {
+          "start": 1,
+          "end": 1,
+          "title": "函数定义",
+          "paragraphs": ["定义 `positives`，接收一个可迭代的 `values`。"]
+        },
+        {
+          "start": 2,
+          "end": 2,
+          "title": "结果容器",
+          "paragraphs": ["创建空列表 `result`，用于累积符合条件的结果。"]
+        },
+        {
+          "start": 3,
+          "end": 5,
+          "title": "循环与判断",
+          "paragraphs": [
+            "逐项取出 `value`，当 `value > 0` 成立时把它追加到 `result`，否则进入下一轮。",
+            "输入 `[-1, 0, 2]` 时，只有 `2` 会被收集。"
+          ]
+        },
+        {
+          "start": 6,
+          "end": 6,
+          "title": "返回结果",
+          "paragraphs": ["返回收集到的列表，原输入保持不变。"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "pi-explain-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test ./tests",
+    "typecheck": "tsc --project tsconfig.json",
+    "setup:browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "@shikijs/langs": "4.5.0",
+    "jsonc-parser": "^3.3.1",
+    "playwright": "1.64.1",
+    "shiki": "4.5.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

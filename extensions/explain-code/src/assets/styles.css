@@ -1,0 +1,242 @@
+:root {
+  color-scheme: light;
+  --paper: #faf9f6;
+  --ink: #303630;
+  --muted: #687067;
+  --code-paper: #f0f0e9;
+  --rule: #dddfd5;
+  --accent: #41665d;
+  --annotation-background: #e3e9db;
+  --scroll-thumb: #a5aea3;
+  --scroll-track: #eceee7;
+  --scroll-hover: #778675;
+  --scroll-active: #566853;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+* {
+  box-sizing: border-box;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: auto;
+}
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border: 2px solid var(--scroll-track);
+  border-radius: 7px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover);
+}
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scroll-active);
+}
+body {
+  margin: 0;
+}
+main {
+  font: 13.5px var(--mono);
+  width: calc(100ch + 88px);
+  max-width: calc(100% - 96px);
+  margin: auto;
+  padding: 64px 0 100px;
+}
+header {
+  margin-bottom: 44px;
+}
+.filename {
+  color: var(--muted);
+  font: 12px/1.6 var(--mono);
+  margin-bottom: 16px;
+}
+h1 {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+article,
+h1 {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+article {
+  font-size: 16px;
+  line-height: 1.95;
+}
+section + section {
+  margin-top: 44px;
+}
+h2 {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+p {
+  overflow-wrap: anywhere;
+}
+.intro {
+  margin: 0 0 18px;
+}
+p code {
+  color: #465c56;
+  font: 0.88em/1.7 var(--mono);
+}
+.code-component {
+  container-type: inline-size;
+  border-block: 1px solid var(--rule);
+  background: var(--code-paper);
+}
+.code-scroll {
+  overflow-x: auto;
+  padding: 17px 0;
+  font: 13.5px/25px var(--mono);
+  tab-size: 2;
+}
+.code-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.code-flow {
+  width: max-content;
+  min-width: 100%;
+}
+.line {
+  position: relative;
+  height: 25px;
+  padding: 0 24px 0 64px;
+  white-space: nowrap;
+}
+.line-number {
+  position: absolute;
+  left: 20px;
+  width: 28px;
+  padding-right: 2px;
+  color: #747d70;
+  text-align: right;
+  font-size: 11px;
+  user-select: none;
+}
+.source {
+  display: block;
+  margin: 0;
+  white-space: pre;
+  font: inherit;
+}
+.source code {
+  font: inherit;
+}
+.note-toggle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  color: var(--accent);
+  background: transparent;
+  font: 15px/1 var(--mono);
+  cursor: pointer;
+}
+.note-toggle:hover {
+  color: #244b40;
+  background: #dbe4d6;
+}
+.note-toggle:active {
+  background: #c9d8c2;
+}
+.note-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.note-toggle[aria-expanded="true"] span {
+  transform: rotate(90deg);
+}
+.is-highlighted {
+  background: var(--annotation-background);
+}
+.explanation {
+  width: 100cqw;
+  margin: 0;
+  padding: 14px 24px 18px 64px;
+  color: #515d51;
+  background: var(--annotation-background);
+  white-space: normal;
+  font:
+    14px/1.9 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
+.explanation[hidden] {
+  display: none;
+}
+.explanation h3 {
+  margin: 0 0 5px;
+  font-size: 13px;
+  color: #365849;
+  font-weight: 600;
+}
+.explanation p {
+  margin: 0;
+}
+::selection {
+  background: #d7e1ce;
+}
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
+  .code-component,
+  .explanation {
+    border: 1px solid CanvasText;
+  }
+  .note-toggle {
+    color: ButtonText;
+  }
+  .is-highlighted {
+    outline: 1px solid Highlight;
+  }
+}
+@media (max-width: 600px) {
+  main {
+    max-width: calc(100% - 24px);
+    padding-top: 28px;
+  }
+  .explanation {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+@media print {
+  main {
+    width: auto;
+    max-width: none;
+    padding: 0;
+  }
+  .code-scroll {
+    overflow: visible;
+    font-size: 8pt;
+  }
+  .note-toggle {
+    display: none;
+  }
+}

@@ -28,7 +28,8 @@
     "extensions": [
       "./extensions/pi-arxiv/index.ts",
       "./extensions/pi-wikipedia/index.ts",
-      "./extensions/pi-web-fetch/index.ts"
+      "./extensions/pi-web-fetch/index.ts",
+      "./extensions/explain-code/index.ts"
     ],
     "skills": [],
     "prompts": [
