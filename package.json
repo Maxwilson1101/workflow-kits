@@ -2,7 +2,6 @@
   "name": "pi-extensions",
   "private": true,
   "workspaces": [
-    "packages/*",
     "extensions/*"
   ],
   "type": "module",
@@ -10,8 +9,7 @@
   "scripts": {
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",
-    "test": "bun run --workspaces test && bun run test:network",
-    "test:network": "node ./packages/http/tests/run-network.mjs ./tests/network/*.network.ts"
+    "test": "bun run --workspaces test"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -26,9 +24,6 @@
   },
   "pi": {
     "extensions": [
-      "./extensions/pi-arxiv/index.ts",
-      "./extensions/pi-wikipedia/index.ts",
-      "./extensions/pi-web-fetch/index.ts",
       "./extensions/explain-code/index.ts"
     ],
     "skills": [],

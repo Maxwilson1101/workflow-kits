@@ -12,5 +12,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["extensions/**/*.ts", "packages/**/*.ts", "tests/**/*.ts", ".pi/extensions/**/*.ts"]
+  "include": ["extensions/**/*.ts", ".pi/extensions/**/*.ts"]
 }
